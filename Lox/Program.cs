@@ -59,12 +59,12 @@ public class Program
 
     private static void Run(string source)
     {
-        // Scanner scanner = new Scanner(source);
-        // List<Token> tokens = scanner.scanTokens();
+        var scanner = new Scanner(source);
+        var tokens = scanner.ScanTokens();
 
-        // foreach (var token in tokens)
-        // {
-        //      Console.WriteLine(token);
-        // }
+        foreach (var token in tokens)
+        {
+            Console.WriteLine(token);
+        }
     }
 }

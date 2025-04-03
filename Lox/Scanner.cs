@@ -8,7 +8,7 @@ public class Scanner
     private readonly List<Token> tokens = [];
     private int start = 0;
     private int current = 0;
-    private readonly int line = 1;
+    private int line = 1;
 
     private bool IsAtEnd => current >= source.Length;
 
@@ -77,8 +77,41 @@ public class Scanner
             case '>':
                 AddToken(MatchNext('=') ? TokenType.GreaterEqual : TokenType.Greater);
                 break;
+            case '/':
+                if (MatchNext('/'))
+                {
+                    // A Comment will go to the end of the line until it hits a newline character.
+                    while (Peek() != '\n') Advance();
+                }
+                else
+                {
+                    AddToken(TokenType.Slash);
+                }
+                break;
+            case ' ':
+            case '\r':
+            case '\t':
+                // Ignore Whitespace
+                break;
+            case '\n':
+                line++;
+                break;
+            case '"':
+                HandleString();
+                break;
             default:
-                Program.Error(line, "Unexpected character.");
+                if (IsDigit(c))
+                {
+                    HandleNumber();
+                }
+                else if (IsAlpha(c))
+                {
+                    HandleIdentifier();
+                }
+                else
+                {
+                    Program.Error(line, "Unexpected character.");
+                }
                 break;
         }
     }
@@ -90,10 +123,20 @@ public class Scanner
         return ch;
     }
 
-    private void AddToken(TokenType tokenType)
+    private char Peek()
     {
-        AddToken(tokenType, null);
+        if (IsAtEnd) return '\0';
+        return source[current];
     }
+
+    private char PeekNext()
+    {
+        if (current + 1 >= source.Length) return '\0';
+        return source[current + 1];
+    }
+
+    private void AddToken(TokenType tokenType) =>
+        AddToken(tokenType, null);
 
     private void AddToken(TokenType tokenType, Object? literal)
     {
@@ -108,4 +151,57 @@ public class Scanner
         current++;
         return true;
     }
+
+    private void HandleString()
+    {
+        while (Peek() != '"' && !IsAtEnd)
+        {
+            if (Peek() == '\n') line++;
+            Advance();
+        }
+
+        if (IsAtEnd)
+        {
+            Program.Error(line, "Unterminated string.");
+            return;
+        }
+
+        // Move beyond the closing quote
+        Advance();
+
+        var value = source[(start + 1)..(current - 1)];
+        AddToken(TokenType.String, value);
+    }
+
+    private void HandleNumber()
+    {
+        while (IsDigit(Peek())) Advance();
+
+        // Look for a decimal
+        if (Peek() == '.' && IsDigit(PeekNext()))
+        {
+            Advance();
+            while (IsDigit(Peek())) Advance();
+        }
+
+        AddToken(TokenType.Number, Double.Parse(source[start..current]));
+    }
+
+    private void HandleIdentifier()
+    {
+        while (IsAlphaNumeric(Peek())) Advance();
+        var text = source[start..current];
+        // If we can't find a reserved word, it must be a user generated identifier.
+        var type = ReservedWords.Get(text) ?? TokenType.Identifier;
+        AddToken(type);
+    }
+
+    private static bool IsDigit(char ch) => ch >= '0' && ch <= '9';
+    private static bool IsAlpha(char ch) =>
+        (ch >= 'a' && ch <= 'z')
+        || (ch >= 'A' && ch <= 'Z')
+        || (ch == '_');
+
+    private static bool IsAlphaNumeric(char ch) =>
+        IsAlpha(ch) || IsDigit(ch);
 }
