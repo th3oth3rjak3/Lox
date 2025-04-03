@@ -67,7 +67,6 @@ public class AstGenerator : IIncrementalGenerator
 
         var concreteClasses = GenerateExpressionClasses();
         builder.Append(concreteClasses);
-        builder.AppendLine();
 
         return builder.ToString();
     }
@@ -142,7 +141,6 @@ public class AstGenerator : IIncrementalGenerator
             builder.AppendLine();
 
         });
-
 
         return builder;
     }

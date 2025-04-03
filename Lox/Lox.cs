@@ -6,7 +6,6 @@ public static class Lox
 
     public static void Main(string[] args)
     {
-        //new Binary()
         if (args.Length > 1)
         {
             Console.WriteLine("Usage: lox [script]");
