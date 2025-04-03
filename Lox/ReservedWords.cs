@@ -1,4 +1,4 @@
-﻿namespace Lox.Shared;
+﻿namespace Lox;
 
 /// <summary>
 /// A static class used to manage reserved words.
@@ -37,9 +37,7 @@ public static class ReservedWords
     public static TokenType? Get(string name)
     {
         if (reservedWords.TryGetValue(name, out var reservedWord))
-        {
             return reservedWord;
-        }
 
         return null;
     }

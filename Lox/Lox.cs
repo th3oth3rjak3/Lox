@@ -1,11 +1,12 @@
 ﻿namespace Lox;
 
-public class Program
+public static class Lox
 {
     private static bool hadError = false;
 
     public static void Main(string[] args)
     {
+        //new Binary()
         if (args.Length > 1)
         {
             Console.WriteLine("Usage: lox [script]");

@@ -1,6 +1,4 @@
-﻿using Lox.Shared;
-
-namespace Lox;
+﻿namespace Lox;
 
 public class Scanner
 {
@@ -110,7 +108,7 @@ public class Scanner
                 }
                 else
                 {
-                    Program.Error(line, "Unexpected character.");
+                    Lox.Error(line, "Unexpected character.");
                 }
                 break;
         }
@@ -162,7 +160,7 @@ public class Scanner
 
         if (IsAtEnd)
         {
-            Program.Error(line, "Unterminated string.");
+            Lox.Error(line, "Unterminated string.");
             return;
         }
 
