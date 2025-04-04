@@ -2,7 +2,7 @@
 
 public static class Lox
 {
-    private readonly static  Interpreter Interpreter = new();
+    private readonly static Interpreter Interpreter = new();
     private static bool _hadError = false;
     private static bool _hadRuntimeError = false;
 
@@ -51,12 +51,12 @@ public static class Lox
         var scanner = new Scanner(source);
         var tokens = scanner.ScanTokens();
         var parser = new Parser(tokens);
-        var expression = parser.Parse();
+        var statements = parser.Parse();
 
         if (_hadError) return;
-        Interpreter.Interpret(expression);
+        Interpreter.Interpret(statements);
     }
-    
+
     internal static void Error(int line, string message)
     {
         Report(line, "", message);
@@ -64,10 +64,13 @@ public static class Lox
 
     internal static void Error(Token token, string message)
     {
-        if (token.Type == TokenType.Eof) {
-            Report(token.Line, " at end", message);
-        } else {
-            Report(token.Line, " at '" + token.Lexeme + "'", message);
+        if (token.Type == TokenType.Eof)
+        {
+            Report(token.Line, "at end", message);
+        }
+        else
+        {
+            Report(token.Line, "at '" + token.Lexeme + "'", message);
         }
     }
 

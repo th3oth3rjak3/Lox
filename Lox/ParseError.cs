@@ -1,6 +1,3 @@
 namespace Lox;
 
-public class ParseError : Exception
-{
-    
-}
+public class ParseError : Exception {}

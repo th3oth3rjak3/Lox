@@ -1,30 +1,33 @@
 using System.Diagnostics;
 using System.Globalization;
-using System.Xml.Xsl;
 
 namespace Lox;
 
-public class Interpreter : IVisitor<object?>
+public class Interpreter : IExprVisitor<object?>, IStmtVisitor<Unit>
 {
-    public void Interpret(Expression? expression)
+    private readonly Env environment = new();
+
+    public void Interpret(List<Stmt> statements)
     {
         try
         {
-            var value = Evaluate(expression);
-            Console.WriteLine(Stringify(value));
+            foreach (var stmt in statements)
+            {
+                Execute(stmt);
+            }
         }
         catch (RuntimeError error)
         {
             Lox.RuntimeError(error);
         }
     }
-    
-    public object? VisitBinaryExpression(Binary expression)
+
+    public object? VisitBinaryExpr(Binary expression)
     {
         var left = Evaluate(expression.Left);
         var right = Evaluate(expression.Right);
 
-        switch (expression.Token.Type)
+        switch (expression.Token?.Type)
         {
             case TokenType.Minus:
                 CheckNumberOperands(expression.Token, left, right);
@@ -67,32 +70,40 @@ public class Interpreter : IVisitor<object?>
                 return !IsEqual(left, right);
             case TokenType.EqualEqual:
                 return IsEqual(left, right);
-        };
+        }
+        ;
 
         return null;
     }
-    public object? VisitGroupingExpression(Grouping expression) => 
+    public object? VisitGroupingExpr(Grouping expression) =>
         Evaluate(expression.Expression);
-    
-    public object? VisitLiteralExpression(Literal expression) => 
+
+    public object? VisitLiteralExpr(Literal expression) =>
         expression.Value;
-    public object? VisitUnaryExpression(Unary expression)
+    public object? VisitUnaryExpr(Unary expression)
     {
         var right = Evaluate(expression);
 
-        switch (expression.Token.Type)
-        { 
-            case TokenType.Minus: 
+        switch (expression.Token?.Type)
+        {
+            case TokenType.Minus:
                 CheckNumberOperand(expression.Token, right);
-                return -(double)right!; // Operand is checked in the CheckNumberOperand function.
+                Debug.Assert(right is not null);
+                return -(double)right;
             case TokenType.Bang:
                 return !IsTruthy(right);
             default:
                 return null;
-        };
+        }
+        ;
     }
-    
-    private object? Evaluate(Expression? expression) => expression?.Accept(this);
+
+    private void Execute(Stmt statement)
+    {
+        statement.Accept(this);
+    }
+
+    private object? Evaluate(Expr? expression) => expression?.Accept(this);
     private static bool IsTruthy(object? value)
     {
         return value switch
@@ -118,8 +129,8 @@ public class Interpreter : IVisitor<object?>
         if (operand is double) return;
         throw new RuntimeError(token, "Operand must be a number.");
     }
-    
-    private void CheckNumberOperands(Token token, object? left, object? right)
+
+    private static void CheckNumberOperands(Token token, object? left, object? right)
     {
         if (left is double && right is double) return;
         throw new RuntimeError(token, "Operands must be numbers.");
@@ -132,16 +143,50 @@ public class Interpreter : IVisitor<object?>
             case null:
                 return "nil";
             case double d:
-            {
-                var text = d.ToString(CultureInfo.InvariantCulture);
-                if (text.EndsWith(".0"))
                 {
-                    text = text[..^2];
+                    var text = d.ToString(CultureInfo.InvariantCulture);
+                    if (text.EndsWith(".0"))
+                    {
+                        text = text[..^2];
+                    }
+                    return text;
                 }
-                return text;
-            }
             default:
                 return value.ToString() ?? "nil";
         }
+    }
+    public Unit VisitExpressionStmt(Expression stmt)
+    {
+        Evaluate(stmt.Expr);
+        return default;
+    }
+
+    public Unit VisitPrintStmt(Print stmt)
+    {
+        var value = Evaluate(stmt.Expression);
+        Console.WriteLine(Stringify(value));
+        return default;
+    }
+
+    public Unit VisitVarStmt(Var stmt)
+    {
+        object? value = null;
+        if (stmt.Initializer != null)
+        {
+            value = Evaluate(stmt.Initializer);
+        }
+
+        var token = stmt.Name;
+        if (token is null) throw new ParseError();
+
+        environment.Define(token.Lexeme, value);
+        return default;
+    }
+
+    public object? VisitVariableExpr(Variable expr)
+    {
+        var token = expr.Name;
+        if (token is null) return null;
+        return environment.Get(token);
     }
 }
