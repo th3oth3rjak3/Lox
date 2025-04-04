@@ -14,19 +14,21 @@ public class AstGenerator : IIncrementalGenerator
     {
         context.RegisterPostInitializationOutput(static postInitializationContext =>
         {
-            postInitializationContext.AddSource("Expression.cs", SourceText.From(GenerateAstFromClasses(), Encoding.UTF8));
+            postInitializationContext.AddSource("Expr.cs", SourceText.From(GenerateAstFromClasses(), Encoding.UTF8));
         });
     }
     
-    private readonly static  string[] ClassConfiguration =
+    private readonly static  string[] Configuration =
     [
-        "Binary : Expression left, Token token, Expression right : A binary expression with two operands and an operator.",
-        "Grouping : Expression expression : An expression that is parenthesized.",
-        "Literal : object? value : A literal like string, number, true, false, etc.",
-        "Unary : Token token, Expression right : An expression that contains a single operator and a single operand."
+        "Expr : Binary : Expr left, Token token, Expr right : A binary expression with two operands and an operator.",
+        "Expr : Grouping : Expr expression : An expression that is parenthesized.",
+        "Expr : Literal : object? value : A literal like string, number, true, false, etc.",
+        "Expr : Unary : Token token, Expr right : An expression that contains a single operator and a single operand.",
+        "Stmt : Expression : Expr expr : An expression that is terminated as a statement.",
+        "Stmt : Print : Expr expression : A call to print the expression.",
     ];
 
-    private readonly static  List<ClassConfig> Classes = [.. ClassConfiguration.Select(ClassConfig.FromString)];
+    private readonly static  List<ClassConfig> ClassesToGenerate = [.. Configuration.Select(ClassConfig.FromString)];
 
     private static string GenerateAstFromClasses()
     {
@@ -39,12 +41,17 @@ public class AstGenerator : IIncrementalGenerator
         builder.Append(visitor);
         builder.AppendLine();
 
-        var expressionBase = GenerateAbstractExpressionClass();
-        builder.Append(expressionBase);
-        builder.AppendLine();
-
-        var concreteClasses = GenerateExpressionClasses();
-        builder.Append(concreteClasses);
+        List<string> baseClassNames = ["Expr", "Stmt"];
+        baseClassNames
+        .ForEach(name =>
+        {
+            var expressionBase = GenerateAbstractBaseClass(name);
+            builder.Append(expressionBase);
+            builder.AppendLine();    
+        });
+        
+        var classes = GenerateConcreteClasses();
+        builder.Append(classes);
 
         return builder.ToString();
     }
@@ -58,12 +65,12 @@ public class AstGenerator : IIncrementalGenerator
         builder.AppendLine("/// </summary>");
         builder.AppendLine("public interface IVisitor<T>");
         builder.AppendLine("{");
-        foreach (var cls in Classes)
+        foreach (var cls in ClassesToGenerate)
         {
             builder.AppendLine("    /// <summary>");
-            builder.AppendLine($"    /// Visit the {cls.ClassName} Expression to perform an operation.");
+            builder.AppendLine($"    /// Visit the {cls.ClassName} {cls.BaseName} to perform an operation.");
             builder.AppendLine("    /// </summary>");
-            builder.AppendLine($"    public T Visit{cls.ClassName}Expression({cls.ClassName} expression);");
+            builder.AppendLine($"    public T Visit{cls.ClassName}{cls.BaseName}({cls.ClassName} expression);");
             builder.AppendLine();
         }
         builder.AppendLine("}");
@@ -71,14 +78,14 @@ public class AstGenerator : IIncrementalGenerator
         return builder;
     }
     
-    private static StringBuilder GenerateAbstractExpressionClass()
+    private static StringBuilder GenerateAbstractBaseClass(string baseClass)
     {
         var builder = new StringBuilder();
 
         builder.AppendLine("/// <summary>");
-        builder.AppendLine("/// An abstract syntax tree expression.");
+        builder.AppendLine("/// An abstract implementation to to be implemented by other classes.");
         builder.AppendLine("/// </summary>");
-        builder.AppendLine("public abstract class Expression");
+        builder.AppendLine($"public abstract class {baseClass}");
         builder.AppendLine("{");
         builder.AppendLine("    /// <summary>");
         builder.AppendLine("    /// Accept the visitor to perform an operation.");
@@ -91,17 +98,17 @@ public class AstGenerator : IIncrementalGenerator
         return builder;
     }
 
-    private static StringBuilder GenerateExpressionClasses()
+    private static StringBuilder GenerateConcreteClasses()
     {
         var builder = new StringBuilder();
 
-        Classes
+        ClassesToGenerate
         .ForEach(cls =>
         {
             builder.AppendLine("/// <summary>");
             builder.AppendLine($"/// {cls.ClassComment}");
             builder.AppendLine("/// </summary>");
-            builder.AppendLine($"public class {cls.ClassName}({FunctionParameter.ToString(cls.Parameters)}) : Expression");
+            builder.AppendLine($"public class {cls.ClassName}({FunctionParameter.ToString(cls.Parameters)}) : {cls.BaseName}");
             builder.AppendLine("{");
             
             cls.Parameters.ForEach(parameter =>
@@ -114,7 +121,7 @@ public class AstGenerator : IIncrementalGenerator
             builder.AppendLine("    /// </summary>");
             builder.AppendLine("    public override R Accept<R>(IVisitor<R> visitor)");
             builder.AppendLine("    {");
-            builder.AppendLine($"        return visitor.Visit{cls.ClassName}Expression(this);");
+            builder.AppendLine($"        return visitor.Visit{cls.ClassName}{cls.BaseName}(this);");
             builder.AppendLine("    }");
             builder.AppendLine("}");
             builder.AppendLine();
