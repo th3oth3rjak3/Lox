@@ -8,18 +8,11 @@ public class Parser(List<Token> tokens)
     public List<Stmt> Parse()
     {
         List<Stmt> stmts = [];
-        try
-        {
-            while (!IsAtEnd)
-            {
-                var stmt = HandleDeclaration();
-                if (stmt != null) stmts.Add(stmt);
-            }
 
-        }
-        catch (ParseError)
+        while (!IsAtEnd)
         {
-            return stmts;
+            var stmt = HandleDeclaration();
+            if (stmt != null) stmts.Add(stmt);
         }
 
         return stmts;
@@ -27,7 +20,28 @@ public class Parser(List<Token> tokens)
 
     private Expr? HandleExpression()
     {
-        return HandleEquality();
+        return HandleAssignment();
+    }
+
+    private Expr? HandleAssignment()
+    {
+        var expr = HandleEquality();
+        if (Match(TokenType.Equal))
+        {
+            var equals = Previous();
+            if (equals is null) return null;
+            var value = HandleAssignment();
+
+            if (expr is Variable v)
+            {
+                var name = v.Name;
+                return new Assign(name, value);
+            }
+
+            Error(equals, "Invalid assignment target.");
+        }
+
+        return expr;
     }
 
     private Stmt? HandleDeclaration()
@@ -79,7 +93,7 @@ public class Parser(List<Token> tokens)
     private Expr? HandleEquality()
     {
         var expression = HandleComparison();
-        while (Match(TokenType.BangEqual, TokenType.Equal))
+        while (Match(TokenType.BangEqual, TokenType.EqualEqual))
         {
             var op = Previous();
             var right = HandleComparison();
@@ -204,11 +218,20 @@ public class Parser(List<Token> tokens)
         }
     }
 
+
+
     private bool Match(params TokenType[] types)
     {
-        if (!types.Any(Check)) return false;
-        Advance();
-        return true;
+        foreach (var type in types)
+        {
+            if (Check(type))
+            {
+                Advance();
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private bool Check(TokenType type) => !IsAtEnd && Peek().Type == type;

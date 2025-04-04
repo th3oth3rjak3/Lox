@@ -3,9 +3,9 @@ using System.Globalization;
 
 namespace Lox;
 
-public class Interpreter : IExprVisitor<object?>, IStmtVisitor<Unit>
+public class Interpreter : IExprVisitor<object?>, IStmtVisitor<Unit?>
 {
-    private readonly Env environment = new();
+    private Env environment = new();
 
     public void Interpret(List<Stmt> statements)
     {
@@ -155,20 +155,20 @@ public class Interpreter : IExprVisitor<object?>, IStmtVisitor<Unit>
                 return value.ToString() ?? "nil";
         }
     }
-    public Unit VisitExpressionStmt(Expression stmt)
+    public Unit? VisitExpressionStmt(Expression stmt)
     {
         Evaluate(stmt.Expr);
         return default;
     }
 
-    public Unit VisitPrintStmt(Print stmt)
+    public Unit? VisitPrintStmt(Print stmt)
     {
         var value = Evaluate(stmt.Expression);
         Console.WriteLine(Stringify(value));
-        return default;
+        return null;
     }
 
-    public Unit VisitVarStmt(Var stmt)
+    public Unit? VisitVarStmt(Var stmt)
     {
         object? value = null;
         if (stmt.Initializer != null)
@@ -180,7 +180,7 @@ public class Interpreter : IExprVisitor<object?>, IStmtVisitor<Unit>
         if (token is null) throw new ParseError();
 
         environment.Define(token.Lexeme, value);
-        return default;
+        return null;
     }
 
     public object? VisitVariableExpr(Variable expr)
@@ -188,5 +188,13 @@ public class Interpreter : IExprVisitor<object?>, IStmtVisitor<Unit>
         var token = expr.Name;
         if (token is null) return null;
         return environment.Get(token);
+    }
+
+    public object? VisitAssignExpr(Assign expr)
+    {
+        var value = Evaluate(expr.Value);
+        if (expr.Name is null) return null;
+        environment.Assign(expr.Name, value);
+        return value;
     }
 }

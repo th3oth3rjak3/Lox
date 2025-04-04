@@ -22,6 +22,7 @@ public class AstGenerator : IIncrementalGenerator
 
     private readonly static string[] Configuration =
     [
+        "Expr : Assign : Token? name, Expr? value : Assign a new value to an identifier.",
         "Expr : Binary : Expr? left, Token? token, Expr? right : A binary expression with two operands and an operator.",
         "Expr : Grouping : Expr? expression : An expression that is parenthesized.",
         "Expr : Literal : object? value : A literal like string, number, true, false, etc.",
