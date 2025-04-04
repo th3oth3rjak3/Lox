@@ -2,22 +2,24 @@
 
 public static class Lox
 {
-    private static bool hadError = false;
+    private readonly static  Interpreter Interpreter = new();
+    private static bool _hadError = false;
+    private static bool _hadRuntimeError = false;
 
     public static void Main(string[] args)
     {
-        if (args.Length > 1)
+        switch (args.Length)
         {
-            Console.WriteLine("Usage: lox [script]");
-            Environment.Exit(64);
-        }
-        else if (args.Length == 1)
-        {
-            RunFile(args[0]);
-        }
-        else
-        {
-            RunPrompt();
+            case > 1:
+                Console.WriteLine("Usage: lox [script]");
+                Environment.Exit(64);
+                break;
+            case 1:
+                RunFile(args[0]);
+                break;
+            default:
+                RunPrompt();
+                break;
         }
     }
 
@@ -27,10 +29,8 @@ public static class Lox
         var source = System.Text.Encoding.UTF8.GetString(bytes);
         Run(source);
 
-        if (hadError)
-        {
-            Environment.Exit(65);
-        }
+        if (_hadError) Environment.Exit(65);
+        if (_hadRuntimeError) Environment.Exit(70);
     }
 
     private static void RunPrompt()
@@ -42,29 +42,44 @@ public static class Lox
             var line = reader.ReadLine();
             if (line == null) break;
             Run(line);
-            hadError = false;
+            _hadError = false;
         }
-    }
-
-    internal static void Error(int line, string message)
-    {
-        Report(line, "", message);
-    }
-
-    private static void Report(int line, string where, string message)
-    {
-        Console.Error.WriteLine($"[line {line}] Error {where}: {message}");
-        hadError = true;
     }
 
     private static void Run(string source)
     {
         var scanner = new Scanner(source);
         var tokens = scanner.ScanTokens();
+        var parser = new Parser(tokens);
+        var expression = parser.Parse();
 
-        foreach (var token in tokens)
-        {
-            Console.WriteLine(token);
+        if (_hadError) return;
+        Interpreter.Interpret(expression);
+    }
+    
+    internal static void Error(int line, string message)
+    {
+        Report(line, "", message);
+    }
+
+    internal static void Error(Token token, string message)
+    {
+        if (token.Type == TokenType.Eof) {
+            Report(token.Line, " at end", message);
+        } else {
+            Report(token.Line, " at '" + token.Lexeme + "'", message);
         }
+    }
+
+    internal static void RuntimeError(RuntimeError error)
+    {
+        Console.Error.WriteLine($"{error.Message}\n[line {error.Token.Line}]");
+        _hadRuntimeError = true;
+    }
+
+    private static void Report(int line, string where, string message)
+    {
+        Console.Error.WriteLine($"[line {line}] Error {where}: {message}");
+        _hadError = true;
     }
 }

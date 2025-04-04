@@ -8,7 +8,7 @@ public static class ReservedWords
     /// <summary>
     /// A static dictionary of Lox reserved words and their token types.
     /// </summary>
-    private static readonly Dictionary<string, TokenType> reservedWords =
+    private readonly static Dictionary<string, TokenType> LoxReservedWords =
         new()
         {
             { "and", TokenType.And },
@@ -36,7 +36,7 @@ public static class ReservedWords
     /// <returns>The token type when found, otherwise null.</returns>
     public static TokenType? Get(string name)
     {
-        if (reservedWords.TryGetValue(name, out var reservedWord))
+        if (LoxReservedWords.TryGetValue(name, out var reservedWord))
             return reservedWord;
 
         return null;

@@ -17,38 +17,16 @@ public class AstGenerator : IIncrementalGenerator
             postInitializationContext.AddSource("Expression.cs", SourceText.From(GenerateAstFromClasses(), Encoding.UTF8));
         });
     }
-
-    private class ClassConfig
-    {
-        public string ClassName { get; set; } = "";
-        public string ClassComment { get; set; } = "";
-        public string Parameters { get; set; } = "";
-    }
-
-    private static ClassConfig GenerateConfigFromString(string input)
-    {
-        var parts = input.Split(':');
-        var className = parts[0].Trim();
-        var inputParams = parts.Skip(1).First().Trim();
-        var classComment = parts.Skip(2).First().Trim();
-
-        return new ClassConfig
-        {
-            ClassName = className,
-            ClassComment = classComment,
-            Parameters = inputParams,
-        };
-    }
-
-    private static readonly string[] ClassConfiguration =
+    
+    private readonly static  string[] ClassConfiguration =
     [
         "Binary : Expression left, Token token, Expression right : A binary expression with two operands and an operator.",
         "Grouping : Expression expression : An expression that is parenthesized.",
-        "Literal : Object? value : A literal like string, number, true, false, etc.",
+        "Literal : object? value : A literal like string, number, true, false, etc.",
         "Unary : Token token, Expression right : An expression that contains a single operator and a single operand."
     ];
 
-    private static readonly List<ClassConfig> Classes = [.. ClassConfiguration.Select(GenerateConfigFromString)];
+    private readonly static  List<ClassConfig> Classes = [.. ClassConfiguration.Select(ClassConfig.FromString)];
 
     private static string GenerateAstFromClasses()
     {
@@ -82,9 +60,9 @@ public class AstGenerator : IIncrementalGenerator
         builder.AppendLine("{");
         foreach (var cls in Classes)
         {
-            builder.AppendLine($"    /// <summary>");
+            builder.AppendLine("    /// <summary>");
             builder.AppendLine($"    /// Visit the {cls.ClassName} Expression to perform an operation.");
-            builder.AppendLine($"    /// </summary>");
+            builder.AppendLine("    /// </summary>");
             builder.AppendLine($"    public T Visit{cls.ClassName}Expression({cls.ClassName} expression);");
             builder.AppendLine();
         }
@@ -92,12 +70,7 @@ public class AstGenerator : IIncrementalGenerator
 
         return builder;
     }
-
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <returns></returns>
-    /// <param name="thing"></param>
+    
     private static StringBuilder GenerateAbstractExpressionClass()
     {
         var builder = new StringBuilder();
@@ -110,8 +83,8 @@ public class AstGenerator : IIncrementalGenerator
         builder.AppendLine("    /// <summary>");
         builder.AppendLine("    /// Accept the visitor to perform an operation.");
         builder.AppendLine("    /// </summary>");
-        builder.AppendLine(@"    /// <param name=""visitor"">The visitor that performs the operation.</param>");
-        builder.AppendLine(@"    /// <returns>The result of visiting the expression.</returns>");
+        builder.AppendLine("""    /// <param name="visitor">The visitor that performs the operation.</param>""");
+        builder.AppendLine("    /// <returns>The result of visiting the expression.</returns>");
         builder.AppendLine("    public abstract R Accept<R>(IVisitor<R> visitor);");
         builder.AppendLine("}");
 
@@ -128,12 +101,18 @@ public class AstGenerator : IIncrementalGenerator
             builder.AppendLine("/// <summary>");
             builder.AppendLine($"/// {cls.ClassComment}");
             builder.AppendLine("/// </summary>");
-            builder.AppendLine($"public class {cls.ClassName}({cls.Parameters}) : Expression");
+            builder.AppendLine($"public class {cls.ClassName}({FunctionParameter.ToString(cls.Parameters)}) : Expression");
             builder.AppendLine("{");
+            
+            cls.Parameters.ForEach(parameter =>
+            {
+                builder.AppendLine($"    public {parameter.TypeName} {parameter.Name.ToProperCase()} {{ get; set; }} = {parameter.Name};");
+            });
+            builder.AppendLine();
             builder.AppendLine("    /// <summary>");
             builder.AppendLine("    /// Accept the visitor to perform an operation.");
             builder.AppendLine("    /// </summary>");
-            builder.AppendLine($"    public override R Accept<R>(IVisitor<R> visitor)");
+            builder.AppendLine("    public override R Accept<R>(IVisitor<R> visitor)");
             builder.AppendLine("    {");
             builder.AppendLine($"        return visitor.Visit{cls.ClassName}Expression(this);");
             builder.AppendLine("    }");
