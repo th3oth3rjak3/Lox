@@ -153,6 +153,8 @@ public class Interpreter : IExprVisitor<object?>, IStmtVisitor<Unit?>
                     }
                     return text;
                 }
+            case bool b:
+                return b.ToString().ToLower();
             default:
                 return value.ToString() ?? "nil";
         }
