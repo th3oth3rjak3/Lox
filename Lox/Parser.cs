@@ -1,3 +1,6 @@
+using Lox.Expressions;
+using Lox.Statements;
+
 namespace Lox;
 
 public class Parser(List<Token> tokens)
@@ -34,7 +37,11 @@ public class Parser(List<Token> tokens)
 
             if (expr is Variable v)
             {
-                var name = v.Name;
+                var name = v.Token;
+                if (name is null)
+                {
+                    return null;
+                }
                 return new Assign(name, value);
             }
 
@@ -61,6 +68,7 @@ public class Parser(List<Token> tokens)
     private Var? HandleVarDeclaration()
     {
         var name = Consume(TokenType.Identifier, "Expect variable name.");
+        if (name is null) return null;
         Expr? initializer = null;
         if (Match(TokenType.Equal))
         {
@@ -71,10 +79,28 @@ public class Parser(List<Token> tokens)
         return new Var(name, initializer);
     }
 
-    private Stmt HandleStatement() =>
-        Match(TokenType.Print)
-            ? HandlePrintStatement()
-            : HandleExpressionStatement();
+    private Stmt HandleStatement()
+    {
+        if (Match(TokenType.Print)) return HandlePrintStatement();
+        if (Match(TokenType.LeftBrace)) return new Block(HandleBlock());
+
+        return HandleExpressionStatement();
+    }
+
+    private List<Stmt> HandleBlock()
+    {
+        List<Stmt> stmts = [];
+
+        while (!Check(TokenType.RightBrace) && !IsAtEnd)
+        {
+            var declaration = HandleDeclaration();
+            if (declaration is null) return [];
+            stmts.Add(declaration);
+        }
+
+        Consume(TokenType.RightBrace, "Expect '}' after block.");
+        return stmts;
+    }
 
 
     private Print HandlePrintStatement()

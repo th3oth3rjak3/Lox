@@ -41,6 +41,7 @@ public static class Lox
             Console.Write("> ");
             var line = reader.ReadLine();
             if (line == null) break;
+            if (line == "quit;") break;
             Run(line);
             _hadError = false;
         }

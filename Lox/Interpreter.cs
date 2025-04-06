@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
+using Lox.Expressions;
+using Lox.Statements;
 
 namespace Lox;
 
@@ -176,7 +178,7 @@ public class Interpreter : IExprVisitor<object?>, IStmtVisitor<Unit?>
             value = Evaluate(stmt.Initializer);
         }
 
-        var token = stmt.Name;
+        var token = stmt.Token;
         if (token is null) throw new ParseError();
 
         environment.Define(token.Lexeme, value);
@@ -185,7 +187,7 @@ public class Interpreter : IExprVisitor<object?>, IStmtVisitor<Unit?>
 
     public object? VisitVariableExpr(Variable expr)
     {
-        var token = expr.Name;
+        var token = expr.Token;
         if (token is null) return null;
         return environment.Get(token);
     }
@@ -193,8 +195,31 @@ public class Interpreter : IExprVisitor<object?>, IStmtVisitor<Unit?>
     public object? VisitAssignExpr(Assign expr)
     {
         var value = Evaluate(expr.Value);
-        if (expr.Name is null) return null;
-        environment.Assign(expr.Name, value);
+        if (expr.Token is null) return null;
+        environment.Assign(expr.Token, value);
         return value;
+    }
+
+    public Unit? VisitBlockStmt(Block stmt)
+    {
+        ExecuteBlock(stmt.Statements, new Env(environment));
+        return null;
+    }
+
+    private void ExecuteBlock(List<Stmt> statements, Env env)
+    {
+        var previous = environment;
+        try
+        {
+            environment = env;
+            foreach (var stmt in statements)
+            {
+                Execute(stmt);
+            }
+        }
+        finally
+        {
+            environment = previous;
+        }
     }
 }
