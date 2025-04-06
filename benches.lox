@@ -1,0 +1,18 @@
+fun fib(n) {
+    if (n < 2) return n;
+    return fib(n - 1) + fib(n - 2);
+}
+
+var before = clock();
+var fibNum = 35;
+print "Calculating fibonacci sequence";
+print fibNum;
+print "";
+print fib(fibNum);
+var after = clock();
+print "Elapsed time (seconds):";
+print (after - before);
+
+
+// 32 took about 48.026 seconds.
+// 35 took about 200.286 seconds.
