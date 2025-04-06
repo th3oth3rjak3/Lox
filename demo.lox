@@ -1,3 +1,4 @@
+var startTime = clock();
 var a = "global a";
 var b = "global b";
 var c = "global c";
@@ -78,3 +79,67 @@ var a = "global";
     var a = "block";
     showA();
 }
+
+var endTime = clock();
+print "Execution time (seconds): ";
+print endTime - startTime;
+
+class Bagel {}
+var bagel = Bagel();
+print bagel; // Prints "Bagel instance".
+
+class Bacon {
+    eat() {
+        print "nom nom nom";
+    }
+}
+
+Bacon().eat();
+
+class Foo {
+  init() {
+    print this;
+  }
+}
+
+var foo = Foo();
+print foo.init();
+
+class Person {
+    init(name) {
+        this.name = name;
+    }
+
+    sayHello() {
+        print "Hello, " + this.name + "!";
+    }
+
+    sayGoodbye() {
+        print "Goodbye, " + this.name + "!";
+    }
+}
+
+var alice = Person("Alice");
+alice.sayHello();
+
+
+var bob = Person("Bob");
+bob.sayHello();
+
+alice.sayGoodbye();
+bob.sayGoodbye();
+
+class Doughnut {
+  cook() {
+    print "Fry until golden brown.";
+  }
+}
+
+class BostonCream < Doughnut {
+    cook() {
+        super.cook();
+        print "Pipe with custard.";
+    }
+}
+
+BostonCream().cook();

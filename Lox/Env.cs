@@ -4,7 +4,7 @@ namespace Lox;
 
 public class Env
 {
-    private Env? EnclosingEnv { get; set; }
+    public Env? EnclosingEnv { get; set; }
     public Env() { }
     public Env(Env? env)
     {

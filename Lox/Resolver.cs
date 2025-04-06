@@ -9,9 +9,19 @@ public class Resolver(Interpreter interpreter) : IExprVisitor<Unit?>, IStmtVisit
     {
         NONE,
         FUNCTION,
+        INITIALIZER,
+        METHOD,
+    }
+
+    private enum ClassType
+    {
+        NONE,
+        CLASS,
+        SUBCLASS,
     }
 
     private FunctionType CurrentFunction = FunctionType.NONE;
+    private ClassType CurrentClass = ClassType.NONE;
     private List<Dictionary<string, bool>> scopes = [];
 
     private void BeginScope()
@@ -217,6 +227,10 @@ public class Resolver(Interpreter interpreter) : IExprVisitor<Unit?>, IStmtVisit
         }
         if (statement.Value is not null)
         {
+            if (CurrentFunction == FunctionType.INITIALIZER)
+            {
+                Lox.Error(statement.Keyword, "Can't return a value from an initializer.");
+            }
             Resolve(statement.Value);
         }
         return null;
@@ -226,6 +240,89 @@ public class Resolver(Interpreter interpreter) : IExprVisitor<Unit?>, IStmtVisit
     {
         Resolve(statement.Condition);
         Resolve(statement.Body);
+        return null;
+    }
+
+    public Unit? VisitClassStmt(Class statement)
+    {
+        ClassType enclosingClass = CurrentClass;
+        CurrentClass = ClassType.CLASS;
+
+        Declare(statement.Name);
+        Define(statement.Name);
+
+        if (statement.Super is not null && statement.Name.Lexeme == statement.Super.Token.Lexeme)
+        {
+            Lox.Error(statement.Super.Token, "A class can't inherit from itself.");
+        }
+
+        if (statement.Super is not null)
+        {
+            CurrentClass = ClassType.SUBCLASS;
+            Resolve(statement.Super);
+        }
+
+        if (statement.Super is not null)
+        {
+            BeginScope();
+            scopes[^1]["super"] = true;
+        }
+
+        BeginScope();
+        scopes[^1].Add("this", true);
+        foreach (var method in statement.Methods)
+        {
+            var declaration = FunctionType.METHOD;
+            if (method.Token.Lexeme == "init")
+            {
+                declaration = FunctionType.INITIALIZER;
+            }
+            ResolveFunction(method, declaration);
+        }
+
+        EndScope();
+        if (statement.Super is not null)
+        {
+            EndScope();
+        }
+        CurrentClass = enclosingClass;
+        return null;
+    }
+
+    public Unit? VisitGetExpr(Get expression)
+    {
+        Resolve(expression.Object);
+        return null;
+    }
+
+    public Unit? VisitSetExpr(Set expression)
+    {
+        Resolve(expression.Value);
+        Resolve(expression.Obj);
+        return null;
+    }
+
+    public Unit? VisitThisExpr(This expression)
+    {
+        if (CurrentClass == ClassType.NONE)
+        {
+            Lox.Error(expression.Keyword, "Can't use 'this' outside of a class.");
+        }
+        ResolveLocal(expression, expression.Keyword);
+        return null;
+    }
+
+    public Unit? VisitSuperExpr(Super expression)
+    {
+        if (CurrentClass == ClassType.NONE)
+        {
+            Lox.Error(expression.Keyword, "Can't use 'super' outside of a class.");
+        }
+        else if (CurrentClass != ClassType.SUBCLASS)
+        {
+            Lox.Error(expression.Keyword, "Can't use 'super' in a class with no superclass.");
+        }
+        ResolveLocal(expression, expression.Keyword);
         return null;
     }
 }

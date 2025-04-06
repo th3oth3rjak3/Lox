@@ -2,7 +2,7 @@ namespace Lox.Expressions;
 
 public class BuiltinFunction(int arity, Func<Interpreter, List<object?>, object?> func) : ILoxCallable
 {
-    public int Arity => arity;
+    public int Arity() => arity;
 
     public object? Call(Interpreter interpreter, List<object?> arguments)
     {

@@ -1,5 +1,3 @@
-using System.Diagnostics;
-using System.Reflection;
 using Lox.Errors;
 using Lox.Expressions;
 using Lox.Statements;
@@ -42,6 +40,10 @@ public class Parser(List<Token> tokens)
                 var name = v.Token ?? throw new RuntimeError(equals, "Variable name cannot be empty.");
                 return new Assign(name, value);
             }
+            else if (expr is Get get)
+            {
+                return new Set(get.Object, get.Name, value);
+            }
 
             Error(equals, "Invalid assignment target.");
         }
@@ -81,6 +83,7 @@ public class Parser(List<Token> tokens)
     {
         try
         {
+            if (Match(TokenType.Class)) return HandleClassDeclaration();
             if (Match(TokenType.Fun)) return HandleFunction("function");
             if (Match(TokenType.Var)) return HandleVarDeclaration();
             return HandleStatement();
@@ -90,6 +93,25 @@ public class Parser(List<Token> tokens)
             Synchronize();
             return null;
         }
+    }
+
+    private Class HandleClassDeclaration()
+    {
+        Token name = Consume(TokenType.Identifier, "Expect class name.");
+        Variable? super = null;
+        if (Match(TokenType.Less))
+        {
+            Consume(TokenType.Identifier, "Expect superclass name.");
+            super = new Variable(Previous());
+        }
+        Consume(TokenType.LeftBrace, "Expect '{' before class body.");
+        List<Function> methods = [];
+        while (!Check(TokenType.RightBrace) && !IsAtEnd)
+        {
+            methods.Add(HandleFunction("method"));
+        }
+        Consume(TokenType.RightBrace, "Expect '}' after class body.");
+        return new Class(name, super, methods);
     }
 
     private Var HandleVarDeclaration()
@@ -349,6 +371,11 @@ public class Parser(List<Token> tokens)
             {
                 expr = FinishCall(expr);
             }
+            else if (Match(TokenType.Dot))
+            {
+                var name = Consume(TokenType.Identifier, "Expect property name after '.'.");
+                expr = new Get(expr, name);
+            }
             else
             {
                 break;
@@ -388,6 +415,16 @@ public class Parser(List<Token> tokens)
         {
             return new Literal(Previous()?.Literal);
         }
+
+        if (Match(TokenType.Super))
+        {
+            var keyword = Previous();
+            Consume(TokenType.Dot, "Expect '.' after 'super'.");
+            var method = Consume(TokenType.Identifier, "Expect superclass method name.");
+            return new Super(keyword, method);
+        }
+
+        if (Match(TokenType.This)) return new This(Previous());
 
         if (Match(TokenType.Identifier)) return new Variable(Previous());
 

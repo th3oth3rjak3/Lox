@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Globalization;
-using System.Reflection.Metadata;
 using Lox.Errors;
 using Lox.Expressions;
 using Lox.Statements;
@@ -323,16 +322,16 @@ public class Interpreter : IExprVisitor<object?>, IStmtVisitor<Unit?>
 
         ILoxCallable function = (ILoxCallable)callee;
 
-        if (arguments.Count != function.Arity)
+        if (arguments.Count != function.Arity())
         {
-            throw new RuntimeError(expression.Paren, $"Expected {function.Arity} arguments, but got {arguments.Count}.");
+            throw new RuntimeError(expression.Paren, $"Expected {function.Arity()} arguments, but got {arguments.Count}.");
         }
         return function.Call(this, arguments);
     }
 
     public Unit? VisitFunctionStmt(Function statement)
     {
-        LoxFunction fn = new(statement, environment);
+        LoxFunction fn = new(statement, environment, false);
         environment.Define(statement.Token.Lexeme, fn);
         return null;
     }
@@ -346,5 +345,93 @@ public class Interpreter : IExprVisitor<object?>, IStmtVisitor<Unit?>
         }
 
         throw new ReturnValue(value);
+    }
+
+    public Unit? VisitClassStmt(Class statement)
+    {
+        object? superclass = null;
+        if (statement.Super is not null)
+        {
+            superclass = Evaluate(statement.Super);
+            if (!(superclass is LoxClass))
+            {
+                throw new RuntimeError(statement.Super.Token, "Superclass must be a class.");
+            }
+        }
+
+        environment.Define(statement.Name.Lexeme, null);
+
+        if (statement.Super is not null)
+        {
+            environment = new Env(environment);
+            environment.Define("super", superclass);
+        }
+
+        var methods = new Dictionary<string, LoxFunction>();
+        foreach (Function fun in statement.Methods)
+        {
+            LoxFunction method = new(fun, environment, fun.Token.Lexeme == "init");
+            methods[fun.Token.Lexeme] = method;
+        }
+
+        LoxClass klass = new(statement.Name.Lexeme, (LoxClass?)superclass, methods);
+
+        if (superclass is not null && environment.EnclosingEnv is not null)
+        {
+            environment = environment.EnclosingEnv;
+        }
+
+        environment.Assign(statement.Name, klass);
+        return null;
+    }
+
+    public object? VisitGetExpr(Get expression)
+    {
+        object? obj = Evaluate(expression.Object);
+        if (obj is LoxInstance instance)
+        {
+            return instance.Get(expression.Name);
+        }
+
+        throw new RuntimeError(expression.Name, "Only instances have properties.");
+    }
+
+    public object? VisitSetExpr(Set expression)
+    {
+        object? obj = Evaluate(expression.Obj);
+        if (obj is LoxInstance instance)
+        {
+            object? value = Evaluate(expression.Value);
+            instance.Set(expression.Name, value);
+            return value;
+        }
+
+        throw new RuntimeError(expression.Name, "Only instances have fields.");
+
+    }
+
+    public object? VisitThisExpr(This expression)
+    {
+        return LookupVariable(expression.Keyword, expression);
+    }
+
+    public object? VisitSuperExpr(Super expression)
+    {
+        int distance = locals[expression];
+        LoxClass? superclass = (LoxClass?)environment.GetAt(distance, "super");
+        LoxInstance? obj = (LoxInstance?)environment.GetAt(distance - 1, "this");
+        LoxFunction? method = null;
+
+        if (superclass is not null)
+        {
+            method = superclass.FindMethod(expression.Method.Lexeme);
+        }
+
+        if (method is null || obj is null)
+        {
+            throw new RuntimeError(expression.Method, "Undefined property '" + expression.Method.Lexeme + "'.");
+        }
+
+        return method.Bind(obj);
     }
 }
