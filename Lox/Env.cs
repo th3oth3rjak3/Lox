@@ -1,3 +1,5 @@
+using Lox.Errors;
+
 namespace Lox;
 
 public class Env
@@ -32,6 +34,22 @@ public class Env
         throw new RuntimeError(name, $"Undefined variable '{name.Lexeme}'.");
     }
 
+    public object? GetAt(int distance, string name)
+    {
+        return Ancestor(distance)?.values[name];
+    }
+
+    private Env? Ancestor(int distance)
+    {
+        var env = this;
+        for (int i = 0; i < distance; i++)
+        {
+            env = env?.EnclosingEnv;
+        }
+
+        return env;
+    }
+
     public void Assign(Token name, object? value)
     {
 
@@ -48,5 +66,13 @@ public class Env
         }
 
         throw new RuntimeError(name, $"Undefined variable '{name.Lexeme}'.");
+    }
+
+    public void AssignAt(int distance, Token name, object? value)
+    {
+        var env = Ancestor(distance);
+        if (env is null) return;
+
+        env.values[name.Lexeme] = value;
     }
 }

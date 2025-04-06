@@ -1,4 +1,6 @@
-﻿namespace Lox;
+﻿using Lox.Errors;
+
+namespace Lox;
 
 public static class Lox
 {
@@ -55,6 +57,11 @@ public static class Lox
         var statements = parser.Parse();
 
         if (_hadError) return;
+        var resolver = new Resolver(Interpreter);
+        resolver.Resolve(statements);
+
+        if (_hadError) return;
+
         Interpreter.Interpret(statements);
     }
 

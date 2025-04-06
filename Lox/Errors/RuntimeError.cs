@@ -1,4 +1,4 @@
-namespace Lox;
+namespace Lox.Errors;
 
 public class RuntimeError(Token token, string message) : Exception(message)
 {

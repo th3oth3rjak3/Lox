@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Reflection.Metadata;
+using Lox.Errors;
 using Lox.Expressions;
 using Lox.Statements;
 
@@ -7,7 +9,26 @@ namespace Lox;
 
 public class Interpreter : IExprVisitor<object?>, IStmtVisitor<Unit?>
 {
-    private Env environment = new();
+    public Env Globals { get; set; }
+    private Env environment;
+    private Dictionary<Expr, int> locals = [];
+
+    public Interpreter()
+    {
+        Globals = new();
+        environment = Globals;
+
+        // Define a clock builtin function that returns the current unix time in seconds.
+        Globals.Define("clock", new BuiltinFunction(0, (interpreter, args) =>
+        {
+            return DateTimeOffset.Now.ToUnixTimeMilliseconds() / 1000.0;
+        }));
+    }
+
+    public void Resolve(Expr expression, int depth)
+    {
+        locals.Add(expression, depth);
+    }
 
     public void Interpret(List<Stmt> statements)
     {
@@ -189,16 +210,33 @@ public class Interpreter : IExprVisitor<object?>, IStmtVisitor<Unit?>
 
     public object? VisitVariableExpr(Variable expr)
     {
-        var token = expr.Token;
-        if (token is null) return null;
-        return environment.Get(token);
+        return LookupVariable(expr.Token, expr);
+    }
+
+    private object? LookupVariable(Token name, Expr expr)
+    {
+        if (locals.TryGetValue(expr, out var distance))
+        {
+            return environment.GetAt(distance, name.Lexeme);
+        }
+        else
+        {
+            return Globals.Get(name);
+        }
     }
 
     public object? VisitAssignExpr(Assign expr)
     {
         var value = Evaluate(expr.Value);
-        if (expr.Token is null) return null;
-        environment.Assign(expr.Token, value);
+        if (locals.TryGetValue(expr, out var distance))
+        {
+            environment.AssignAt(distance, expr.Token, value);
+        }
+        else
+        {
+            Globals.Assign(expr.Token, value);
+        }
+
         return value;
     }
 
@@ -208,7 +246,7 @@ public class Interpreter : IExprVisitor<object?>, IStmtVisitor<Unit?>
         return null;
     }
 
-    private void ExecuteBlock(List<Stmt> statements, Env env)
+    public void ExecuteBlock(List<Stmt> statements, Env env)
     {
         var previous = environment;
         try
@@ -223,5 +261,90 @@ public class Interpreter : IExprVisitor<object?>, IStmtVisitor<Unit?>
         {
             environment = previous;
         }
+    }
+
+    public Unit? VisitIfStmt(If statement)
+    {
+        if (IsTruthy(Evaluate(statement.Condition)))
+        {
+            Execute(statement.ThenBranch);
+        }
+        else if (statement.ElseBranch is not null)
+        {
+            Execute(statement.ElseBranch);
+        }
+
+        return null;
+    }
+
+    public object? VisitLogicalExpr(Logical expression)
+    {
+        var left = Evaluate(expression.Left);
+
+        if (expression.Token.Type == TokenType.Or)
+        {
+            if (IsTruthy(left)) return left;
+        }
+        else
+        {
+            if (!IsTruthy(left))
+            {
+                return left;
+            }
+        }
+
+        return Evaluate(expression.Right);
+    }
+
+    public Unit? VisitWhileStmt(While statement)
+    {
+        while (IsTruthy(Evaluate(statement.Condition)))
+        {
+            Execute(statement.Body);
+        }
+
+        return null;
+    }
+
+    public object? VisitCallExpr(Call expression)
+    {
+        var callee = Evaluate(expression.Callee);
+        List<object?> arguments = [];
+
+        foreach (var arg in expression.Arguments)
+        {
+            arguments.Add(Evaluate(arg));
+        }
+
+        if (callee is null || callee is not ILoxCallable)
+        {
+            throw new RuntimeError(expression.Paren, "Can only call functions and classes.");
+        }
+
+        ILoxCallable function = (ILoxCallable)callee;
+
+        if (arguments.Count != function.Arity)
+        {
+            throw new RuntimeError(expression.Paren, $"Expected {function.Arity} arguments, but got {arguments.Count}.");
+        }
+        return function.Call(this, arguments);
+    }
+
+    public Unit? VisitFunctionStmt(Function statement)
+    {
+        LoxFunction fn = new(statement, environment);
+        environment.Define(statement.Token.Lexeme, fn);
+        return null;
+    }
+
+    public Unit? VisitReturnStmt(Return statement)
+    {
+        object? value = null;
+        if (statement.Value is not null)
+        {
+            value = Evaluate(statement.Value);
+        }
+
+        throw new ReturnValue(value);
     }
 }

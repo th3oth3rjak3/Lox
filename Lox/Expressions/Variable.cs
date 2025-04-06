@@ -1,8 +1,8 @@
 namespace Lox.Expressions;
 
-public class Variable(Token? token) : Expr
+public class Variable(Token token) : Expr
 {
-    public Token? Token { get; set; } = token;
+    public Token Token { get; set; } = token;
 
     public override R Accept<R>(IExprVisitor<R> visitor)
     {
